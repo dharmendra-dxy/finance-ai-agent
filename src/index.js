@@ -5,6 +5,11 @@ import Groq from "groq-sdk";
 dotenv.config();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+
+// global constant (for manipulating data like DB):
+const expenseDB = [];
+
+
 async function callAgent() {
   // dynamic messages array:
   const messages = [
@@ -16,7 +21,7 @@ async function callAgent() {
 
   messages.push({
     role: "user",
-    content: "How much i have spend this month ?",
+    content: "Hey, I have just bought an Macbook worth 50000.",
   });
 
   // Need to repeat the process in loop:
@@ -40,6 +45,26 @@ async function callAgent() {
                 toDate: {
                   type: "string",
                   description: "to date to get the expenses.",
+                },
+              },
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "addExpenses",
+            description: "Add new expense entry to expense database",
+            parameters: {
+              type: "object",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "Name of the expense. e.g., Purchase an Iphone",
+                },
+                amount: {
+                  type: "string",
+                  description: "Amount of the expense.",
                 },
               },
             },
@@ -75,6 +100,10 @@ async function callAgent() {
         result = getTotalExpense(JSON.parse(functionArg));
       }
 
+      else if (functionName === "addExpenses") {
+        result = addExpenses(JSON.parse(functionArg));
+      }
+
       // add result in message history:
       messages.push({
         role: "tool",
@@ -87,6 +116,9 @@ async function callAgent() {
 
       console.log("Messages------------->");
       console.log(messages);
+
+      console.log("Expense DataBase------------>");
+      console.log(expenseDB);
     }
   }
 }
@@ -101,5 +133,22 @@ function getTotalExpense({ fromDate, toData }) {
   console.log("Inside get total Expense function");
 
   // In REALITY -> call db and calculate expense fromDate to toDate:
-  return "10000 INR";
+
+    const expense = expenseDB.reduce((acc, item) => {
+        return acc + item.amount;
+    }, 0);
+
+  return `${expense} INR`;
+}
+
+
+/* 
+* ADD EXPENSES FUNCTION
+*/
+
+function addExpenses({name, amount}){
+    console.log(`Adding ${amount} to expenseDB for ${name}`);
+    expenseDB.push({name, amount});
+
+    return "Added to the database";
 }
