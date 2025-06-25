@@ -8,6 +8,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // global constant (for manipulating data like DB):
 const expenseDB = [];
+const incomeDB = [];
 
 async function callAgent() {
   // interface for readline:
@@ -23,7 +24,9 @@ async function callAgent() {
       content: `You are josh, a personal finance assisatance. You need to assis user with their expenses, balances and financial planning. 
       You have access to following tools:
       1. getTotalExpense({fromDate, toDate}): string // get total expense for a time period between fromDate and toDate. 
-      2. addExpense({name, amount}): string // adds new expense to the expenseDatabase, where name is the name of the product or entity and amount is the amount spned on the product or entity. 
+      2. addExpense({name, amount}): string // adds new expense to the expenseDatabase, where name is the name of the product or entity and amount is the amount spend on the product or entity. 
+      3. addIncome({name, amount}): string // adds new income to the incomeDatabase, where name is the source of the amount generated and amount is the amount received from the source. 
+      4. addIncome(): string // Get the remaining money balance from the database. 
       Current datetime: ${new Date().toUTCString()}`,
     },
   ];
@@ -70,6 +73,27 @@ async function callAgent() {
           {
             type: "function",
             function: {
+              name: "addIncome",
+              description: "Add new income entry to income database",
+              parameters: {
+                type: "object",
+                properties: {
+                  name: {
+                    type: "string",
+                    description:
+                      "Name of the source of income. e.g., Income from freelancing, Income from office, salary credited",
+                  },
+                  amount: {
+                    type: "string",
+                    description: "Amount of the income.",
+                  },
+                },
+              },
+            },
+          },
+          {
+            type: "function",
+            function: {
               name: "addExpenses",
               description: "Add new expense entry to expense database",
               parameters: {
@@ -86,6 +110,14 @@ async function callAgent() {
                   },
                 },
               },
+            },
+          },
+          {
+            type: "function",
+            function: {
+              name: "getMoneyBalance",
+              description: "Get the remaining money balance from the database",
+              
             },
           },
         ],
@@ -119,6 +151,12 @@ async function callAgent() {
         } else if (functionName === "addExpenses") {
           result = addExpenses(JSON.parse(functionArg));
         }
+        else if (functionName === "addIncome") {
+          result = addIncome(JSON.parse(functionArg));
+        }
+        else if (functionName === "getMoneyBalance") {
+          result = getMoneyBalance();
+        }
 
         // add result in message history:
         messages.push({
@@ -149,7 +187,6 @@ await callAgent();
  */
 
 function getTotalExpense({ fromDate, toData }) {
-  //   console.log("Inside get total Expense function");
 
   // In REALITY -> call db and calculate expense fromDate to toDate:
 
@@ -165,8 +202,30 @@ function getTotalExpense({ fromDate, toData }) {
  */
 
 function addExpenses({ name, amount }) {
-  //   console.log(`Adding ${amount} to expenseDB for ${name}`);
   expenseDB.push({ name, amount });
 
-  return "Added to the database";
+  return "Added to the expense database";
 }
+
+/* 
+* ADD INCOME 
+*/
+
+function addIncome({ name, amount }) {
+  incomeDB.push({ name, amount });
+
+  return "Added to the income database";
+}
+
+/* 
+* Get MOney Balance
+*/
+
+function getMoneyBalance() {
+
+    const totalIncome = incomeDB.reduce((acc,item) => acc+item.amount,0);
+    const totalExpense = expenseDB.reduce((acc,item) => acc+item.amount,0);
+
+  return `${totalIncome - totalExpense} INR`;
+}
+
