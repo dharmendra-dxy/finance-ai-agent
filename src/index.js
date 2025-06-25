@@ -19,72 +19,9 @@ async function callAgent() {
     content: "How much i have spend this month ?",
   });
 
-  const completion = await groq.chat.completions.create({
-    messages: messages,
-    model: "llama-3.3-70b-versatile",
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "getTotalExpense",
-          description: "Get total expense from fromDate to toDate.",
-          parameters: {
-            type: "object",
-            properties: {
-              fromDate: {
-                type: "string",
-                description: "from date to get the expenses.",
-              },
-              toDate: {
-                type: "string",
-                description: "to date to get the expenses.",
-              },
-            },
-          },
-        },
-      },
-    ],
-  });
-
-  console.log(JSON.stringify(completion.choices[0], null, 2));
-
-  // update messages array[]: for history
-  messages.push(completion.choices[0]?.message);
-
-  // check tool calls:
-  const toolCalls = completion?.choices[0]?.message.tool_calls;
-
-  // if !toolCalls -> we get final ans:
-  if (!toolCalls) {
-    console.log(`Assistant: ${completion?.choices[0]?.message.content}`);
-    return;
-  }
-
-  // get result -> using function calls:
-  // there can be multiple tools (i.e. toolCalls is [{},{},{}...]) -> so loop them and use:
-
-  for (const tool of toolCalls) {
-    const functionName = tool.function.name;
-    const functionArg = tool.function.arguments;
-
-    let result="";
-
-    if (functionName === "getTotalExpense") {
-      result = getTotalExpense(JSON.parse(functionArg));
-    }
-
-    // add result in message history:
-    messages.push({
-        role: 'tool',
-        content: result,
-        tool_call_id: tool.id,
-    });
-
-
-
-    // Now send this result back to model -> to send answer to user:
-
-    const completion2 = await groq.chat.completions.create({
+  // Need to repeat the process in loop:
+  while (true) {
+    const completion = await groq.chat.completions.create({
       messages: messages,
       model: "llama-3.3-70b-versatile",
       tools: [
@@ -111,12 +48,47 @@ async function callAgent() {
       ],
     });
 
-    console.log("ANSWER--------------- ");
-    console.log(JSON.stringify(completion2.choices[0], null, 2));
-  }
+    // console.log(JSON.stringify(completion.choices[0], null, 2));`
 
-  console.log("Messages-------------------");
-  console.log(messages);
+    // update messages array[]: for history
+    messages.push(completion.choices[0]?.message);
+
+    // check tool calls:
+    const toolCalls = completion?.choices[0]?.message.tool_calls;
+
+    // if !toolCalls -> we get final ans:
+    if (!toolCalls) {
+      console.log(`Assistant: ${completion?.choices[0]?.message.content}`);
+      break; // break and exit the loop when final result is received.
+    }
+
+    // get result -> using function calls:
+    // there can be multiple tools (i.e. toolCalls is [{},{},{}...]) -> so loop them and use:
+
+    for (const tool of toolCalls) {
+      const functionName = tool.function.name;
+      const functionArg = tool.function.arguments;
+
+      let result = "";
+
+      if (functionName === "getTotalExpense") {
+        result = getTotalExpense(JSON.parse(functionArg));
+      }
+
+      // add result in message history:
+      messages.push({
+        role: "tool",
+        content: result,
+        tool_call_id: tool.id,
+      });
+
+    //   console.log("ANSWER--------------->");
+    //   console.log(JSON.stringify(completion2.choices[0], null, 2));
+
+      console.log("Messages------------->");
+      console.log(messages);
+    }
+  }
 }
 
 await callAgent();
